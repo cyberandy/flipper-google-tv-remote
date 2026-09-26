@@ -67,6 +67,18 @@ Google TV only lists Bluetooth accessories whose device class is a keyboard, rem
 
 This app starts the firmware's extra beacon from the same Bluetooth address, advertising Appearance = keyboard. The beacon runs only while the app waits for a connection.
 
+## Tested with
+
+Tested on 26 September 2026 with a Flipper Zero on official firmware 1.4.3, a Chromecast with Google TV (HD) and an Epson projector.
+
+| Feature | Result |
+| --- | --- |
+| Pairing with the Chromecast, including the code confirmation | Works |
+| Automatic reconnect after restarting or updating the app | Works |
+| D-pad and select | Works |
+| Projector on and Projector off over infrared | Works |
+| Home, volume, mute, play/pause, search, Google TV power | Not yet confirmed |
+
 ## Limitations
 
 **YouTube, Netflix and Input buttons are not implemented.** The Google remote sends consumer codes `0x0C0077`, `0x0C0078` and `0x0C01BB` for these. Android only maps them in its key layout for Google's own remote (`Vendor_0957_Product_0001.kl`). The Flipper SDK does not let an app change its Bluetooth vendor and product ID, so Google TV would ignore these codes from the Flipper.
