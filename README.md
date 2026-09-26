@@ -43,11 +43,12 @@ Actions menu:
 | Mute | BLE HID consumer mute |
 | Play / Pause | BLE HID consumer play/pause |
 | Search / Assistant | BLE HID consumer AC Search. Opens search; there is no microphone |
-| Projector power (IR) | Epson NECext `83 55` / `90 6F`. Press twice to turn off, as with the Epson remote |
+| Projector on (IR) | Epson power, NECext `83 55` / `90 6F` |
+| Projector off (IR) | Epson power twice, 1.5 s apart, to answer the projector's "Power off?" prompt |
 | Google TV power | BLE HID consumer power |
 | Back to remote | Closes the menu |
 
-The projector action works even when Bluetooth is not connected.
+The projector actions work even when Bluetooth is not connected.
 
 ## Mapping to the Google remote
 
@@ -57,7 +58,7 @@ The projector action works even when Bluetooth is not connected.
 | Back, Home | Back, menu Home |
 | Assistant | menu Search / Assistant |
 | Mute, side volume | menu Mute, Volume, or Left/Right in the menu |
-| Power (projector) | menu Projector power (IR) |
+| Power (projector) | menu Projector on / Projector off (IR) |
 | YouTube, Netflix, Input | **Not supported**, see below |
 
 ## Why Google TV can see the Flipper

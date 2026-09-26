@@ -41,10 +41,12 @@
 #define GAP_APPEARANCE_HID_KEYBOARD 0x03C1
 #define HID_SERVICE_UUID            0x1812
 
-#define PULSE_MS       60
-#define POWER_PULSE_MS 600
-#define HIGHLIGHT_MS   160
-#define MENU_ROWS      4
+#define PULSE_MS         60
+#define POWER_PULSE_MS   600
+#define HIGHLIGHT_MS     160
+#define MENU_ROWS        4
+/* Epson shows "Power off?" after the first press and needs a second one. */
+#define EPSON_CONFIRM_MS 1500
 
 typedef enum {
     ActionHome,
@@ -53,7 +55,8 @@ typedef enum {
     ActionMute,
     ActionPlayPause,
     ActionSearch,
-    ActionProjectorPower,
+    ActionProjectorOn,
+    ActionProjectorOff,
     ActionTvPower,
     ActionClose,
     ActionCount,
@@ -66,7 +69,8 @@ static const char* const action_labels[ActionCount] = {
     "Mute",
     "Play / Pause",
     "Search / Assistant",
-    "Projector power (IR)",
+    "Projector on (IR)",
+    "Projector off (IR)",
     "Google TV power",
     "Back to remote",
 };
@@ -282,7 +286,7 @@ static bool remote_consumer(Remote* app, uint16_t code) {
     return sent;
 }
 
-static void remote_projector_power(Remote* app) {
+static void remote_projector_send(void) {
     const InfraredMessage message = {
         .protocol = InfraredProtocolNECext,
         .address = EPSON_IR_ADDRESS,
@@ -291,7 +295,19 @@ static void remote_projector_power(Remote* app) {
     };
     /* One frame plus a repeat, like a short press on the Epson remote. */
     infrared_send(&message, 2);
-    remote_toast(app, "IR sent. Again = confirm off", 2500);
+}
+
+static void remote_projector_on(Remote* app) {
+    remote_projector_send();
+    remote_toast(app, "Projector power sent", 1500);
+}
+
+static void remote_projector_off(Remote* app) {
+    remote_toast(app, "Projector off...", EPSON_CONFIRM_MS + 1000);
+    remote_projector_send();
+    furi_delay_ms(EPSON_CONFIRM_MS);
+    remote_projector_send();
+    remote_toast(app, "Projector off sent", 1500);
 }
 
 static void remote_run_action(Remote* app, Action action) {
@@ -318,8 +334,11 @@ static void remote_run_action(Remote* app, Action action) {
     case ActionTvPower:
         sent = remote_consumer(app, HID_CONSUMER_POWER);
         break;
-    case ActionProjectorPower:
-        remote_projector_power(app);
+    case ActionProjectorOn:
+        remote_projector_on(app);
+        break;
+    case ActionProjectorOff:
+        remote_projector_off(app);
         break;
     default:
         break;
@@ -330,7 +349,7 @@ static void remote_run_action(Remote* app, Action action) {
 /* Volume and mute keep the menu open so you can tap repeatedly. */
 static bool action_keeps_menu(Action action) {
     return action == ActionVolumeUp || action == ActionVolumeDown || action == ActionMute ||
-           action == ActionProjectorPower;
+           action == ActionProjectorOn || action == ActionProjectorOff;
 }
 
 static void remote_set_menu(Remote* app, bool open) {
