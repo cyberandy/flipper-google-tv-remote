@@ -100,7 +100,6 @@ ufbt launch     # installs and runs it on a USB-connected Flipper (close qFlippe
 
 Special thanks to **G50 SEOktoberfest**, who gifted me my first Flipper Zero and made this project possible.
 
-
 The Bluetooth setup and app structure are adapted from [flipper-apple-tv-remote](https://github.com/KronenbergBN/flipper-apple-tv-remote) by Hanns Kronenberg, which is GPL-3.0-only. This project is therefore also GPL-3.0-only. See [LICENSE](LICENSE).
 
 Epson IR codes come from the official firmware's `projector.ir` library.
