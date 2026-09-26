@@ -5,6 +5,7 @@
 
 #include <furi.h>
 #include <furi_hal_bt.h>
+#include <furi_hal_version.h>
 #include <furi_hal_usb_hid.h>
 #include <bt/bt_service/bt.h>
 #include <extra_profiles/hid_profile.h>
@@ -26,6 +27,13 @@
  * confirm power off, exactly like its own remote. */
 #define EPSON_IR_ADDRESS 0x5583
 #define EPSON_IR_COMMAND 0x6F90
+
+/* Google TV only lists Bluetooth accessories whose class is keyboard, remote
+ * or similar. For LE devices Android derives that class from the Appearance
+ * field in the advertisement, which the firmware's HID advertisement lacks.
+ * The extra beacon re-advertises the same address with Appearance = keyboard. */
+#define GAP_APPEARANCE_HID_KEYBOARD 0x03C1
+#define HID_SERVICE_UUID            0x1812
 
 #define PULSE_MS       60
 #define POWER_PULSE_MS 600
@@ -77,6 +85,8 @@ typedef struct {
     RemoteScreen screen;
     uint32_t highlight_until;
     uint32_t toast_until;
+    bool beacon_ok;
+    bool beacon_on;
 } Remote;
 
 static void remote_arrow(Canvas* canvas, int cx, int cy, InputKey key) {
@@ -378,6 +388,70 @@ static void remote_expire(Remote* app) {
     if(changed) view_port_update(app->view_port);
 }
 
+static bool remote_beacon_setup(void) {
+    GapExtraBeaconConfig config = {
+        .min_adv_interval_ms = 100,
+        .max_adv_interval_ms = 150,
+        .adv_channel_map = GapAdvChannelMapAll,
+        .adv_power_level = GapAdvPowerLevel_0dBm,
+        .address_type = GapAddressTypePublic,
+    };
+    /* Same derivation as ble_profile_hid_get_config() with no params. */
+    memcpy(config.address, furi_hal_version_get_ble_mac(), sizeof(config.address));
+    config.address[2]++;
+
+    uint8_t data[EXTRA_BEACON_MAX_DATA_SIZE];
+    uint8_t len = 0;
+    data[len++] = 2; /* Flags: LE general discoverable, BR/EDR not supported */
+    data[len++] = 0x01;
+    data[len++] = 0x06;
+    data[len++] = 3; /* Appearance */
+    data[len++] = 0x19;
+    data[len++] = GAP_APPEARANCE_HID_KEYBOARD & 0xFF;
+    data[len++] = GAP_APPEARANCE_HID_KEYBOARD >> 8;
+    data[len++] = 3; /* Complete list of 16-bit service UUIDs: HID */
+    data[len++] = 0x03;
+    data[len++] = HID_SERVICE_UUID & 0xFF;
+    data[len++] = HID_SERVICE_UUID >> 8;
+
+    /* Complete local name, matching the HID profile's "Control <name>". */
+    char name[EXTRA_BEACON_MAX_DATA_SIZE];
+    snprintf(name, sizeof(name), "Control %s", furi_hal_version_get_name_ptr());
+    size_t name_len = strlen(name);
+    const size_t room = sizeof(data) - len - 2;
+    if(name_len > room) name_len = room;
+    data[len++] = name_len + 1;
+    data[len++] = name_len == strlen(name) ? 0x09 : 0x08;
+    memcpy(&data[len], name, name_len);
+    len += name_len;
+
+    if(!furi_hal_bt_extra_beacon_set_config(&config)) {
+        FURI_LOG_E(TAG, "beacon config failed");
+        return false;
+    }
+    if(!furi_hal_bt_extra_beacon_set_data(data, len)) {
+        FURI_LOG_E(TAG, "beacon data failed");
+        return false;
+    }
+    return true;
+}
+
+/* Run the beacon only while waiting for Google TV to connect. */
+static void remote_beacon_update(Remote* app) {
+    if(!app->beacon_ok) return;
+    furi_mutex_acquire(app->lock, FuriWaitForever);
+    const bool want = !app->screen.connected;
+    furi_mutex_release(app->lock);
+    if(want == app->beacon_on) return;
+    const bool ok = want ? furi_hal_bt_extra_beacon_start() : furi_hal_bt_extra_beacon_stop();
+    if(ok) {
+        app->beacon_on = want;
+    } else {
+        FURI_LOG_E(TAG, "beacon %s failed", want ? "start" : "stop");
+        app->beacon_ok = false;
+    }
+}
+
 int32_t google_tv_remote_app(void* context) {
     UNUSED(context);
     Remote* app = malloc(sizeof(Remote));
@@ -401,6 +475,7 @@ int32_t google_tv_remote_app(void* context) {
     if(app->profile) {
         bt_set_status_changed_callback(app->bt, remote_bt_status, app);
         furi_hal_bt_start_advertising();
+        app->beacon_ok = remote_beacon_setup();
     } else {
         furi_mutex_acquire(app->lock, FuriWaitForever);
         app->screen.failed = true;
@@ -415,7 +490,10 @@ int32_t google_tv_remote_app(void* context) {
             running = remote_handle_input(app, &event);
         }
         remote_expire(app);
+        remote_beacon_update(app);
     }
+
+    if(app->beacon_on) furi_hal_bt_extra_beacon_stop();
 
     bt_set_status_changed_callback(app->bt, NULL, NULL);
     if(app->profile) {

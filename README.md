@@ -56,6 +56,12 @@ The projector action works even when Bluetooth is not connected.
 | Power (projector) | menu Projector power (IR) |
 | YouTube, Netflix, Input | **Not supported**, see below |
 
+## Why Google TV can see the Flipper
+
+Google TV only lists Bluetooth accessories whose device class is a keyboard, remote or similar. For Bluetooth LE devices, Android reads that class from the Appearance field of the advertisement. The stock Flipper HID advertisement has no Appearance field, so Google TV silently hides it. This is why the built-in Bluetooth Remote app does not show up on a Chromecast.
+
+This app starts the firmware's extra beacon from the same Bluetooth address, advertising Appearance = keyboard. The beacon runs only while the app waits for a connection.
+
 ## Limitations
 
 **YouTube, Netflix and Input buttons are not implemented.** The Google remote sends consumer codes `0x0C0077`, `0x0C0078` and `0x0C01BB` for these. Android only maps them in its key layout for Google's own remote (`Vendor_0957_Product_0001.kl`). The Flipper SDK does not let an app change its Bluetooth vendor and product ID, so Google TV would ignore these codes from the Flipper.
