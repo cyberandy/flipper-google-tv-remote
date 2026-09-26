@@ -20,6 +20,10 @@ Independent project, not affiliated with Google, Epson or Flipper Devices.
 
 The app shares the official Bluetooth Remote app's pairing store, so an existing pairing is reused.
 
+## Custom Bluetooth name
+
+By default the Flipper shows up as `Control <flipper name>`. To use another name, put one line of up to 16 characters in `SD Card/apps_data/google_tv_remote/name.txt`, for example `AndyFlip`. The Bluetooth address stays the same, so an existing pairing keeps working. Google TV may show the old name until you pair again.
+
 ## Controls
 
 | Flipper button | Action |

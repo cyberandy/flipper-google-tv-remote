@@ -22,6 +22,12 @@
 #define REMOTE_BOND_DIR  EXT_PATH("apps_data/hid_ble")
 #define REMOTE_BOND_PATH REMOTE_BOND_DIR "/.bt_hid.keys"
 
+/* Optional Bluetooth name override, one line of up to 16 characters.
+ * Without it the Flipper advertises the stock "Control <flipper name>". */
+#define REMOTE_NAME_PATH EXT_PATH("apps_data/google_tv_remote/name.txt")
+#define REMOTE_NAME_MAX  (FURI_HAL_VERSION_DEVICE_NAME_LENGTH - 2)
+#define AD_TYPE_NAME     0x09
+
 /* Epson projector power, NECext address 83 55 / command 90 6F, taken from the
  * official firmware's projector.ir library. Epson asks for a second press to
  * confirm power off, exactly like its own remote. */
@@ -88,6 +94,50 @@ typedef struct {
     bool beacon_ok;
     bool beacon_on;
 } Remote;
+
+static char remote_name[REMOTE_NAME_MAX + 1];
+
+static void remote_name_load(Storage* storage) {
+    File* file = storage_file_alloc(storage);
+    if(storage_file_open(file, REMOTE_NAME_PATH, FSAM_READ, FSOM_OPEN_EXISTING)) {
+        char buf[REMOTE_NAME_MAX + 1] = {0};
+        size_t len = storage_file_read(file, buf, REMOTE_NAME_MAX);
+        size_t out = 0;
+        for(size_t i = 0; i < len && buf[i] != '\n' && buf[i] != '\r'; i++) {
+            if(buf[i] >= 0x20 && buf[i] < 0x7F) remote_name[out++] = buf[i];
+        }
+        while(out && remote_name[out - 1] == ' ')
+            out--;
+        remote_name[out] = '\0';
+    }
+    storage_file_close(file);
+    storage_file_free(file);
+}
+
+/* Wraps the stock HID profile and only changes its advertised name. The HID
+ * code tags its instance with ble_profile_hid, so its own checks still pass. */
+static FuriHalBleProfileBase* remote_profile_start(FuriHalBleProfileParams params) {
+    return ble_profile_hid->start(params);
+}
+
+static void remote_profile_stop(FuriHalBleProfileBase* profile) {
+    ble_profile_hid->stop(profile);
+}
+
+static void remote_profile_gap_config(GapConfig* config, FuriHalBleProfileParams params) {
+    ble_profile_hid->get_gap_config(config, params);
+    if(remote_name[0]) {
+        memset(config->adv_name, 0, sizeof(config->adv_name));
+        config->adv_name[0] = AD_TYPE_NAME;
+        strlcpy(config->adv_name + 1, remote_name, sizeof(config->adv_name) - 1);
+    }
+}
+
+static const FuriHalBleProfileTemplate remote_profile = {
+    .start = remote_profile_start,
+    .stop = remote_profile_stop,
+    .get_gap_config = remote_profile_gap_config,
+};
 
 static void remote_arrow(Canvas* canvas, int cx, int cy, InputKey key) {
     int dx = 0, dy = 0;
@@ -416,7 +466,11 @@ static bool remote_beacon_setup(void) {
 
     /* Complete local name, matching the HID profile's "Control <name>". */
     char name[EXTRA_BEACON_MAX_DATA_SIZE];
-    snprintf(name, sizeof(name), "Control %s", furi_hal_version_get_name_ptr());
+    if(remote_name[0]) {
+        strlcpy(name, remote_name, sizeof(name));
+    } else {
+        snprintf(name, sizeof(name), "Control %s", furi_hal_version_get_name_ptr());
+    }
     size_t name_len = strlen(name);
     const size_t room = sizeof(data) - len - 2;
     if(name_len > room) name_len = room;
@@ -469,9 +523,10 @@ int32_t google_tv_remote_app(void* context) {
     furi_delay_ms(200);
     Storage* storage = furi_record_open(RECORD_STORAGE);
     storage_common_mkdir(storage, REMOTE_BOND_DIR);
+    remote_name_load(storage);
     furi_record_close(RECORD_STORAGE);
     bt_keys_storage_set_storage_path(app->bt, REMOTE_BOND_PATH);
-    app->profile = bt_profile_start(app->bt, ble_profile_hid, NULL);
+    app->profile = bt_profile_start(app->bt, &remote_profile, NULL);
     if(app->profile) {
         bt_set_status_changed_callback(app->bt, remote_bt_status, app);
         furi_hal_bt_start_advertising();
