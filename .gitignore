@@ -1,0 +1,16 @@
+# ufbt build output
+dist/
+.ufbt/
+build/
+
+# editor / tooling
+.vscode/
+.idea/
+compile_commands.json
+
+# macOS
+.DS_Store
+
+# ufbt-generated
+.clang-format
+.editorconfig

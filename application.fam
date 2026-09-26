@@ -1,0 +1,14 @@
+App(
+    appid="google_tv_remote",
+    name="Google TV",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="google_tv_remote_app",
+    stack_size=2 * 1024,
+    fap_libs=["ble_profile"],
+    fap_category="Bluetooth",
+    fap_version="0.1",
+    fap_icon="google_tv_remote.png",
+    fap_author="cyberandy",
+    fap_weburl="https://github.com/cyberandy/flipper-google-tv-remote",
+    fap_description="Google TV remote over Bluetooth, plus Epson projector power over infrared",
+)
