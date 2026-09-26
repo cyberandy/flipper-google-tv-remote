@@ -16,6 +16,8 @@ Independent project, not affiliated with Google, Epson or Flipper Devices.
 4. On Google TV, open **Settings > Remotes & Accessories > Pair remote or accessory** and choose `Control <your Flipper name>`.
 5. Confirm the pairing code if asked.
 
+**Bluetooth must be on** in the Flipper's Settings > Bluetooth, or the Flipper will not advertise. On the Chromecast pairing screen, ignore the "hold Back and Home" hint, which is for Google's own remote. The Flipper appears in the list of found devices on that same screen.
+
 The app shares the official Bluetooth Remote app's pairing store, so an existing pairing is reused.
 
 ## Controls
